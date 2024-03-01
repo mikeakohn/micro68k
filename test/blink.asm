@@ -2,21 +2,32 @@
 
 .org 0x4000
 main:
-  move.l #0x12348000, d2
-  swap d2
-  move.w d2, d0
+  jsr delay
+  jsr led_on
+  jsr delay
+  jsr led_off
+  jmp main
 
-  add.w #0x8000, d2
-  move.w #0x3, d0
-  ;move ccr, d0
-  ;move sr, d0
-  ;move d0, sr
-  move d0, ccr
-
-  ;add.w #0x1234, (0)
-  ;move sr, d0
   trap #0
 
-loop:
-  ;jmp loop
+led_on:
+  ;; FIXME: this fails.
+  ;move.w #1, (0x8010).w
+  move.w #1, d0
+  move.w d0, (0x8010).w
+  rts
+
+led_off:
+  ;move.w #0, (0x8010).w
+  move.w #0, d0
+  move.w d0, (0x8010).w
+  rts
+
+delay:
+  move.w #0xffff, d0
+delay_loop:
+  ;subq.l #1, d0
+  sub.l #1, d0
+  bne.s delay_loop
+  rts
 

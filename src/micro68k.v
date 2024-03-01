@@ -84,7 +84,7 @@ reg [2:0] size = 0;
 reg direction = 0;
 reg is_lea;
 reg is_quick;
-//reg use_ccr;
+reg do_branch;
 reg [5:0] shift_count;
 reg [2:0] shift_type;
 wire[1:0] shift_size;
@@ -322,7 +322,7 @@ always @(posedge clk) begin
           is_quick <= 0;
           is_address <= 0;
           is_immediate <= 0;
-          //use_ccr <= 0;
+          do_branch <= 0;
           direction <= 0;
           mem_count <= 0;
           mem_bus_enable <= 1;
@@ -1290,45 +1290,41 @@ always @(posedge clk) begin
             state <= STATE_BRANCH_1;
           end
 
-          arg1 <= pc;
-        end
-      STATE_BRANCH_1:
-        begin
           case (instruction[11:9])
             3'b000:
               begin
                 // Branch always / subroutine.
-                pc <= $signed(arg1) + $signed(temp[15:0]);
+                do_branch <= 1;
               end
             3'b001:
               begin
                 // Branch high / low or same (hi, ls).
                 if ((~flags[FLAG_CARRY] && ~flags[FLAG_ZERO]) ^ instruction[8])
-                  pc <= $signed(arg1) + $signed(temp[15:0]);
+                  do_branch <= 1;
               end
             3'b010:
               begin
                 // Branch carry clear / carry set (cc/hi, cs/lo).
                 if (~flags[FLAG_CARRY] ^ instruction[8])
-                  pc <= $signed(arg1) + $signed(temp[15:0]);
+                  do_branch <= 1;
               end
             3'b011:
               begin
                 // Branch not equal / equal (ne, eq).
                 if (~flags[FLAG_ZERO] ^ instruction[8])
-                  pc <= $signed(arg1) + $signed(temp[15:0]);
+                  do_branch <= 1;
               end
             3'b100:
               begin
                 // Branch overflow clear / overflow set (vc, vs).
                 if (~flags[FLAG_OVERFLOW] ^ instruction[8])
-                  pc <= $signed(arg1) + $signed(temp[15:0]);
+                  do_branch <= 1;
               end
             3'b101:
               begin
                 // Branch plus / minus (pl, mi).
                 if (~flags[FLAG_NEGATIVE] ^ instruction[8])
-                  pc <= $signed(arg1) + $signed(temp[15:0]);
+                  do_branch <= 1;
               end
             3'b110:
               begin
@@ -1336,7 +1332,7 @@ always @(posedge clk) begin
                 if (((flags[FLAG_NEGATIVE] && flags[FLAG_OVERFLOW]) ||
                     (~flags[FLAG_NEGATIVE] || ~flags[FLAG_OVERFLOW]))
                      ^ instruction[8])
-                  pc <= $signed(arg1) + $signed(temp[15:0]);
+                  do_branch <= 1;
               end
             3'b111:
               begin
@@ -1347,9 +1343,16 @@ always @(posedge clk) begin
                     (~flags[FLAG_NEGATIVE] &&
                      ~flags[FLAG_OVERFLOW] &&
                      ~flags[FLAG_ZERO])) ^ instruction[8])
-                  pc <= $signed(arg1) + $signed(temp[15:0]);
+                  do_branch <= 1;
               end
           endcase
+
+          arg1 <= pc;
+        end
+      STATE_BRANCH_1:
+        begin
+          if (do_branch)
+            pc <= $signed(arg1[15:0]) + $signed(temp[15:0]);
 
           temp <= pc;
 
