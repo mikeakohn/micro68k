@@ -22,6 +22,10 @@ blink:
 	naken_asm -l -type bin -o rom.bin test/blink.asm
 	python3 tools/bin2txt.py rom.bin > rom.txt
 
+self_test:
+	naken_asm -l -type bin -o rom.bin test/self_test.asm
+	python3 tools/bin2txt.py rom.bin > rom.txt
+
 immediate:
 	naken_asm -l -type bin -o rom.bin test/immediate.asm
 	python3 tools/bin2txt.py rom.bin > rom.txt
@@ -56,6 +60,10 @@ quick:
 
 bitset:
 	naken_asm -l -type bin -o rom.bin test/bitset.asm
+	python3 tools/bin2txt.py rom.bin > rom.txt
+
+flags:
+	naken_asm -l -type bin -o rom.bin test/flags.asm
 	python3 tools/bin2txt.py rom.bin > rom.txt
 
 clean:

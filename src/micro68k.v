@@ -83,7 +83,6 @@ reg is_immediate = 0;
 reg [2:0] size = 0;
 reg direction = 0;
 reg is_lea;
-reg is_quick;
 reg do_branch;
 reg [5:0] shift_count;
 reg [2:0] shift_type;
@@ -125,7 +124,7 @@ reg [31:0] ea_value;
 reg [31:0] ea_wb;
 
 // Flags.
-reg [15:0 ]flags;
+reg [15:0]flags;
 
 parameter FLAG_EXTEND   = 4;
 parameter FLAG_NEGATIVE = 3;
@@ -159,8 +158,10 @@ always @(posedge raw_clk) begin
   case (count[9:7])
     //3'b000: begin column_value <= 4'b0111; leds_value <= ~instruction[7:0]; end
     3'b000: begin column_value <= 4'b0111; leds_value <= ~data[0][7:0]; end
+    //3'b000: begin column_value <= 4'b0111; leds_value <= ~flags[7:0]; end
     //3'b010: begin column_value <= 4'b1011; leds_value <= ~instruction[15:8]; end
     3'b010: begin column_value <= 4'b1011; leds_value <= ~data[0][15:8]; end
+    //3'b010: begin column_value <= 4'b1011; leds_value <= ~flags[15:8]; end
     3'b100: begin column_value <= 4'b1101; leds_value <= ~pc[7:0]; end
     3'b110: begin column_value <= 4'b1110; leds_value <= ~state; end
     default: begin column_value <= 4'b1111; leds_value <= 8'hff; end
@@ -209,6 +210,8 @@ parameter STATE_POP_PC_0 =     34;
 parameter STATE_POP_PC_1 =     35;
 parameter STATE_SWAP =         37;
 parameter STATE_BIT_UPDATE   = 38;
+
+parameter STATE_ALU_QUICK_0  = 39;
 
 parameter STATE_HALTED =       57; // 0x39
 parameter STATE_ERROR =        58; // 0x3a
@@ -319,7 +322,6 @@ always @(posedge clk) begin
       STATE_FETCH_OP_0:
         begin
           is_lea <= 0;
-          is_quick <= 0;
           is_address <= 0;
           is_immediate <= 0;
           do_branch <= 0;
@@ -441,7 +443,10 @@ always @(posedge clk) begin
                         2'b01:
                           if (instruction[5:4] == 2'b00)
                             // trap #n
-                            state <= STATE_HALTED;
+                            if (instruction[3:0] == 1)
+                              state <= STATE_ERROR;
+                            else
+                              state <= STATE_HALTED;
                           else
                             // rts 0101
                             // nop
@@ -475,8 +480,7 @@ always @(posedge clk) begin
                   else
                     alu_op <= ALU_SUB;
 
-                  is_quick <= 1;
-                  state <= STATE_ALU_0;
+                  state <= STATE_ALU_QUICK_0;
                 end
               2'b10:
                 begin
@@ -834,6 +838,24 @@ always @(posedge clk) begin
           else
             state <= STATE_ALU_1;
         end
+      STATE_ALU_QUICK_0:
+        begin
+          is_immediate <= 1;
+          direction <= 1;
+          arg1 <= op_reg == 0 ? 8 : op_reg;
+          ea_code <= instruction[5:0];
+
+          mem_count <= 0;
+          mem_last <= instruction[7:6] == 2 ? 1 : 0;
+
+          case (instruction[7:6])
+            2'b00: size <= 1;
+            2'b01: size <= 2;
+            2'b10: size <= 4;
+          endcase
+
+          state <= STATE_ALU_1;
+        end
       STATE_ALU_CCR:
         begin
           case (alu_op)
@@ -887,13 +909,8 @@ always @(posedge clk) begin
             endcase
           end
 
-          if (is_quick == 0) begin
-            arg1 <= data[op_reg];
-            arg1_reg <= op_reg;
-          end else begin
-            arg1 <= op_reg == 0 ? 8 : op_reg;
-            direction <= 1;
-          end
+          arg1 <= data[op_reg];
+          arg1_reg <= op_reg;
 
           ea_code <= instruction[5:0];
 
@@ -990,44 +1007,44 @@ always @(posedge clk) begin
       STATE_ALU_4:
         begin
           case (alu_op)
-            ALU_OR:  result <= arg1 | temp;
-            ALU_AND: result <= arg1 & temp;
-            ALU_SUB: result <= arg1 - temp;
-            ALU_CMP: result <= arg1 - temp;
-            ALU_ADD: result <= arg1 + temp;
-            ALU_EOR: result <= arg1 ^ temp;
+            ALU_OR:  result <= dest_value | arg1;
+            ALU_AND: result <= dest_value & arg1;
+            ALU_SUB: result <= dest_value - arg1;
+            ALU_CMP: result <= dest_value - arg1;
+            ALU_ADD: result <= dest_value + arg1;
+            ALU_EOR: result <= dest_value ^ arg1;
             ALU_CLR: result <= 0;
-            ALU_NEG: result <= 0 - temp;
+            ALU_NEG: result <= 0 - arg1;
             ALU_SR:  result <= flags;
-            ALU_BIT: begin flags[FLAG_ZERO] <= ~temp[arg1]; result <= temp; end
+            ALU_BIT: begin flags[FLAG_ZERO] <= ~arg1[arg1]; result <= arg1; end
           endcase
 
           if (alu_op == ALU_BIT) begin
             state <= STATE_BIT_UPDATE;
-          end else if (alu_op == ALU_SR) begin
-            state <= STATE_FETCH_OP_0;
+          end else if (alu_op == ALU_SR && direction == 0) begin
             flags <= temp;
+            state <= STATE_FETCH_OP_0;
           end else begin
             state <= STATE_ALU_WB;
           end
         end
       STATE_ALU_WB:
         begin
-          if (alu_op != ALU_BIT)
+          if (alu_op != ALU_BIT && alu_op != ALU_SR)
             case (size)
               1:
                 begin
-                  set_flags8(result, arg1);
+                  set_flags8(result, dest_value);
                   temp[7:0] <= result[7:0];
                 end
               2:
                 begin
-                  set_flags16(result, arg1);
+                  set_flags16(result, dest_value);
                   temp[15:0] <= result[15:0];
                 end
               4:
                 begin
-                  set_flags32(result, arg1);
+                  set_flags32(result, dest_value);
                   temp[31:0] <= result[31:0];
                 end
             endcase

@@ -63,4 +63,7 @@ Not implemented:
     ror <ea>
     Scc
 
+The trap instruction is used to put the CPU in a halted state. Using
+trap #1, the CPU will go into the ERROR state while any other value
+will put the CPU into the HALTED state.
 

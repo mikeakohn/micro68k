@@ -25,9 +25,11 @@ led_off:
 
 delay:
   move.w #0xffff, d0
+  ;move.w #0, d0
 delay_loop:
-  ;subq.l #1, d0
-  sub.l #1, d0
+  subq.l #1, d0
+  ;addq.l #1, d0
+  ;sub.l #1, d0
   bne.s delay_loop
   rts
 
