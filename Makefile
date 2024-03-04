@@ -22,6 +22,10 @@ blink:
 	naken_asm -l -type bin -o rom.bin test/blink.asm
 	python3 tools/bin2txt.py rom.bin > rom.txt
 
+lcd:
+	naken_asm -l -type bin -o rom.bin test/blink.asm
+	python3 tools/bin2txt.py rom.bin > rom.txt
+
 self_test:
 	naken_asm -l -type bin -o rom.bin test/self_test.asm
 	python3 tools/bin2txt.py rom.bin > rom.txt

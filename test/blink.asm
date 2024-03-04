@@ -12,15 +12,15 @@ main:
 
 led_on:
   ;; FIXME: this fails.
-  ;move.w #1, (0x8010).w
-  move.w #1, d0
-  move.w d0, (0x8010).w
+  move.w #1, (0x8010).w
+  ;move.w #1, d0
+  ;move.w d0, (0x8010).w
   rts
 
 led_off:
-  ;move.w #0, (0x8010).w
-  move.w #0, d0
-  move.w d0, (0x8010).w
+  move.w #0, (0x8010).w
+  ;move.w #0, d0
+  ;move.w d0, (0x8010).w
   rts
 
 delay:
