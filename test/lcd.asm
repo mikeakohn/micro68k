@@ -3,13 +3,13 @@
 .org 0x4000
 
 ;; Registers.
-BUTTON     equ 0x4000   
-SPI_TX     equ 0x4002   
-SPI_RX     equ 0x4004   
-SPI_CTL    equ 0x4006
-PORT0      equ 0x4010
-SOUND      equ 0x4012
-SPI_IO     equ 0x4014   
+BUTTON     equ 0x8000
+SPI_TX     equ 0x8002
+SPI_RX     equ 0x8004
+SPI_CTL    equ 0x8006
+PORT0      equ 0x8010
+SOUND      equ 0x8012
+SPI_IO     equ 0x8014
 
 ;; Bits in SPI_CTL.
 SPI_BUSY   equ 0x01
@@ -59,12 +59,14 @@ main:
 main_while_1:
   jsr delay
   ;; LED on.
-  move.w #1, d0
-  move.w d0, (0x8010).w
+  ;move.w #1, d0
+  ;move.b d0, (PORT0).w
+  move.b #1, (PORT0).w
   jsr delay
   ;; LED off.
-  move.w #0, d0
-  move.w d0, (0x8010).w
+  ;move.w #0, d0
+  ;move.b d0, (PORT0).w
+  move.b #0, (PORT0).w
   jmp main_while_1
 
 lcd_init:
@@ -113,10 +115,10 @@ lcd_init:
 lcd_clear:
   move.w #96 * 64, d7
 lcd_clear_loop:
-  move.w #0x0f0f, d0
+  move.w #0xf0f0, d0
   jsr lcd_send_data
   subq.w #1, d7
-  bne lcd_clear_loop
+  bne.s lcd_clear_loop
   rts
 
 ;; lcd_send_cmd(d0)
@@ -125,8 +127,10 @@ lcd_send_cmd:
   move.b d0, (SPI_TX).w
   move.b #SPI_START, (SPI_CTL).w
 lcd_send_cmd_wait:
-  btst #4, (SPI_CTL).w
-  bne lcd_send_cmd_wait
+  btst #0, (SPI_CTL).w
+  ;move.w (SPI_CTL).w, d0
+  ;btst #0, d0
+  bne.s lcd_send_cmd_wait
   move.w #LCD_CS | LCD_RES, (SPI_IO).w
   rts
 
@@ -136,8 +140,10 @@ lcd_send_data:
   move.w d0, (SPI_TX).w
   move.b #SPI_16 | SPI_START, (SPI_CTL).w
 lcd_send_data_wait:
-  btst #4, (SPI_CTL).w
-  bne lcd_send_cmd_wait
+  btst #0, (SPI_CTL).w
+  ;move.w (SPI_CTL).w, d0
+  ;btst #0, d0
+  bne.s lcd_send_data_wait
   move.w #LCD_CS | LCD_RES, (SPI_IO).w
   rts
 
