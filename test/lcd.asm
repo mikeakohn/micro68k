@@ -54,20 +54,27 @@ start:
 
 main:
   jsr lcd_init
-  jsr lcd_clear 
+  jsr lcd_clear
 
 main_while_1:
   jsr delay
+  ;; Check button.
+  cmpi.w #1, (BUTTON).w
+  beq.s run
   ;; LED on.
-  ;move.w #1, d0
-  ;move.b d0, (PORT0).w
   move.b #1, (PORT0).w
   jsr delay
+  ;; Check button.
+  cmpi.w #1, (BUTTON).w
+  beq.s run
   ;; LED off.
-  ;move.w #0, d0
-  ;move.b d0, (PORT0).w
   move.b #0, (PORT0).w
   jmp main_while_1
+
+run:
+  jsr lcd_clear_2
+  jsr mandelbrot
+  bra.s main_while_1
 
 lcd_init:
   move.w #LCD_CS, (SPI_IO).w
@@ -115,10 +122,68 @@ lcd_init:
 lcd_clear:
   move.w #96 * 64, d7
 lcd_clear_loop:
-  move.w #0xf0f0, d0
+  move.w #0x0f0f, d0
   jsr lcd_send_data
   subq.w #1, d7
   bne.s lcd_clear_loop
+  rts
+
+lcd_clear_2:
+  move.w #96 * 64, d7
+lcd_clear_loop_2:
+  move.w #0xf00f, d0
+  jsr lcd_send_data
+  subq.w #1, d7
+  bne.s lcd_clear_loop_2
+  rts
+
+multiply:
+  rts
+
+mandelbrot:
+  ;; Store local variables in 0xc000 pointed to by a0.
+  movea.l #0xc000, a0
+
+  ;; 0:  uint16_t x;
+  ;; 2:  uint16_t y;
+  ;; 4:  uint16_t r;
+  ;; 6:  uint16_t i;
+  ;; 8:  uint16_t zr;
+  ;; 10: uint16_t zi;
+  ;; final int DEC_PLACE = 10;
+  ;; final int r0 = (-2 << DEC_PLACE);
+  ;; final int i0 = (-1 << DEC_PLACE);
+  ;; final int r1 = (1 << DEC_PLACE);
+  ;; final int i1 = (1 << DEC_PLACE);
+  ;; final int dx = (r1 - r0) / 96; (0x0020)
+  ;; final int dy = (i1 - i0) / 64; (0x0020)
+
+  ;; for (y = 0; y < 64; y++)
+  move.w #64, (2,a0)
+
+  ;; int i = -1 << 10;
+  move.w #0xfc00, (6,a0)
+mandelbrot_for_y:
+
+  ;; for (x = 0; x < 96; x++)
+  move.w #96, (a0)
+
+  ;; int r = -2 << 10;
+  move.w #0xf800, (4,a0)
+mandelbrot_for_x:
+  ;; zr = r;
+  ;; zi = i;
+  move.w (4,a0), d0
+  move.w (6,a0), d1
+  move.w d0, (8,a0)
+  move.w d1, (10,a0)
+
+  subq.w #1, (0,a0)
+  bne.s mandelbrot_for_x
+
+  subq.w #1, (2,a0)
+  bne.s mandelbrot_for_y
+
   rts
 
 ;; lcd_send_cmd(d0)

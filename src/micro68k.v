@@ -354,6 +354,7 @@ always @(posedge clk) begin
                   // btst #<data>, <ea>  0000 100 0 00
                   // bchg #<data>, <ea>  0000 100 0 01
                   // bset #<data>, <ea>  0000 100 0 11
+                  // cmpi #<data>, <ea>  0000 110 0
                   alu_op <= instruction[11:9];
                   state <= STATE_ALU_IMM_0;
                 end else begin
