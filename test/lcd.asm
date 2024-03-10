@@ -137,7 +137,53 @@ lcd_clear_loop_2:
   bne.s lcd_clear_loop_2
   rts
 
+;; multiply(d6, d7) -> d0
 multiply:
+  moveq.l #0, d0
+multiply_loop:
+  lsr.l #1, d7
+  bcc.s multiply_skip_add
+  add.l d6, d0
+multiply_skip_add:
+  lsl.l #1, d6
+  cmp.l #0, d7
+  bne.s multiply_loop
+  asr.l #8, d0
+  asr.l #2, d0
+  and.l #0xffff, d0
+  rts
+
+;; multiply_signed(d6, d7) -> d0
+multiply_signed:
+  move.w #0, d5
+  btst #15, d7
+  beq.s multiply_signed_d7_pos
+  addq.w #1, d5
+  neg.w d7
+multiply_signed_d7_pos:
+  btst #15, d6
+  beq.s multiply_signed_d6_pos
+  addq.w #1, d5
+  neg.w d6
+multiply_signed_d6_pos:
+  and.l #0xffff, d7
+  and.l #0xffff, d6
+  moveq.l #0, d0
+multiply_signed_loop:
+  lsr.l #1, d7
+  bcc.s multiply_signed_skip_add
+  add.l d6, d0
+multiply_signed_skip_add:
+  lsl.l #1, d6
+  cmp.l #0, d7
+  bne.s multiply_signed_loop
+  ;asr.l #8, d0
+  ;asr.l #2, d0
+  and.l #0xffff, d0
+  cmp.w #0, d5
+  bne.s multiply_signed_exit
+  neg.w d0
+multiply_signed_exit:
   rts
 
 mandelbrot:
@@ -183,6 +229,13 @@ mandelbrot_for_x:
 
   subq.w #1, (2,a0)
   bne.s mandelbrot_for_y
+
+  ;; Some test code.
+  ;move.l #0xfffe, d6
+  ;move.l #4, d7
+  ;jsr multiply_signed
+  ;jsr multiply
+  ;trap #0
 
   rts
 

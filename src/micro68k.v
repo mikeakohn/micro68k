@@ -890,7 +890,6 @@ always @(posedge clk) begin
             direction <= 1;
             size <= ea_mode == 0 ? 4 : 1;
             is_immediate <= 1;
-            arg1 <= data[instruction[11:9]];
             mem_last <= 0;
           end else if (alu_op == ALU_SR) begin
             direction <= ~instruction[10];
@@ -910,8 +909,12 @@ always @(posedge clk) begin
             endcase
           end
 
-          arg1 <= data[op_reg];
-          arg1_reg <= op_reg;
+          if (alu_op == ALU_BIT) begin
+            arg1 <= data[instruction[11:9]];
+          end else begin
+            arg1 <= data[op_reg];
+            arg1_reg <= op_reg;
+          end
 
           ea_code <= instruction[5:0];
 
@@ -990,6 +993,7 @@ always @(posedge clk) begin
             dest_value <= temp;
             dest_reg = ea_reg;
           end else if (direction == 0) begin
+            arg1 <= temp;
             dest_reg = op_reg;
             dest_value <= data[op_reg];
           end else begin
@@ -1198,7 +1202,7 @@ always @(posedge clk) begin
             shift_count <= data[instruction[11:9]];
 
           //           0=right / 1=left, 00=arithmetic / 01=logical / 11=roll
-          shift_type = { instruction[8], instruction[7:6] };
+          shift_type = { instruction[8], instruction[4:3] };
           state <= STATE_SHIFT_1;
         end
       STATE_SHIFT_1:
