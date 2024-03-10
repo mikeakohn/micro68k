@@ -239,19 +239,19 @@ mandelbrot_for_x:
   move.w d1, (zi,a0)
 
   ;; for (int count = 0; count < 15; count++)
-  move.w #0, d2
+  move.w #15, d2
 mandelbrot_for_count:
   ;; zr2 = (zr * zr) >> DEC_PLACE;
   move.w (zr,a0), d7
   move.w (zr,a0), d6
   jsr multiply_signed
-  move.w d0, (zr2,z0)
+  move.w d0, (zr2,a0)
 
   ;; zi2 = (zi * zi) >> DEC_PLACE;
   move.w (zi,a0), d7
   move.w (zi,a0), d6
   jsr multiply_signed
-  move.w d0, (zi2,z0)
+  move.w d0, (zi2,a0)
 
   ;; if (zr2 + zi2 > (4 << DEC_PLACE)) { break; }
   ;; cmp does: 4 - (zr2 + zi2).. if it's negative it's bigger than 4.
@@ -286,6 +286,7 @@ mandelbrot_for_count:
 mandelbrot_stop:
 
   move.w (0,a1,d0*2), d0
+  ;move.w #0x000f, d0
 
   jsr lcd_send_data
 
@@ -313,8 +314,6 @@ lcd_send_cmd:
   move.b #SPI_START, (SPI_CTL).w
 lcd_send_cmd_wait:
   btst #0, (SPI_CTL).w
-  ;move.w (SPI_CTL).w, d0
-  ;btst #0, d0
   bne.s lcd_send_cmd_wait
   move.w #LCD_CS | LCD_RES, (SPI_IO).w
   rts
@@ -326,8 +325,6 @@ lcd_send_data:
   move.b #SPI_16 | SPI_START, (SPI_CTL).w
 lcd_send_data_wait:
   btst #0, (SPI_CTL).w
-  ;move.w (SPI_CTL).w, d0
-  ;btst #0, d0
   bne.s lcd_send_data_wait
   move.w #LCD_CS | LCD_RES, (SPI_IO).w
   rts
