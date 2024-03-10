@@ -2,6 +2,19 @@
 
 .org 0x4000
 
+;; Variables.
+curr_x equ 0
+curr_y equ 2
+curr_r equ 4
+curr_i equ 6
+zr     equ 8
+zi     equ 10
+count  equ 12
+zr2    equ 14
+zi2    equ 16
+tr     equ 18
+ti     equ 20
+
 ;; Registers.
 BUTTON     equ 0x8000
 SPI_TX     equ 0x8002
@@ -189,6 +202,7 @@ multiply_signed_exit:
 mandelbrot:
   ;; Store local variables in 0xc000 pointed to by a0.
   movea.l #0xc000, a0
+  movea.l #colors, a1
 
   ;; 0:  uint16_t x;
   ;; 2:  uint16_t y;
@@ -205,30 +219,83 @@ mandelbrot:
   ;; final int dy = (i1 - i0) / 64; (0x0020)
 
   ;; for (y = 0; y < 64; y++)
-  move.w #64, (2,a0)
+  move.w #64, (curr_y,a0)
 
   ;; int i = -1 << 10;
-  move.w #0xfc00, (6,a0)
+  move.w #0xfc00, (curr_i,a0)
 mandelbrot_for_y:
 
   ;; for (x = 0; x < 96; x++)
   move.w #96, (a0)
 
   ;; int r = -2 << 10;
-  move.w #0xf800, (4,a0)
+  move.w #0xf800, (curr_r,a0)
 mandelbrot_for_x:
   ;; zr = r;
   ;; zi = i;
-  move.w (4,a0), d0
-  move.w (6,a0), d1
-  move.w d0, (8,a0)
-  move.w d1, (10,a0)
+  move.w (curr_r,a0), d0
+  move.w (curr_i,a0), d1
+  move.w d0, (zr,a0)
+  move.w d1, (zi,a0)
 
-  subq.w #1, (0,a0)
-  bne.s mandelbrot_for_x
+  ;; for (int count = 0; count < 15; count++)
+  move.w #0, d2
+mandelbrot_for_count:
+  ;; zr2 = (zr * zr) >> DEC_PLACE;
+  move.w (zr,a0), d7
+  move.w (zr,a0), d6
+  jsr multiply_signed
+  move.w d0, (zr2,z0)
 
-  subq.w #1, (2,a0)
-  bne.s mandelbrot_for_y
+  ;; zi2 = (zi * zi) >> DEC_PLACE;
+  move.w (zi,a0), d7
+  move.w (zi,a0), d6
+  jsr multiply_signed
+  move.w d0, (zi2,z0)
+
+  ;; if (zr2 + zi2 > (4 << DEC_PLACE)) { break; }
+  ;; cmp does: 4 - (zr2 + zi2).. if it's negative it's bigger than 4.
+  move.w (zr2,a0), d0
+  add.w (zi2,a0), d0
+  cmp.w #4, d0
+  bgt.s mandelbrot_stop
+
+  ;; tr = zr2 - zi2;
+  move.w (zr2,a0), d0
+  sub.w (zi2,a0), d0
+  move.w d0, (tr,a0)
+
+  ;; ti = ((zr * zi) >> DEC_PLACE) << 1;
+  move.w (zr,a0), d7
+  move.w (zi,a0), d6
+  jsr multiply_signed
+  move.w d0, (ti,a0)
+
+  ;; zr = tr + curr_r;
+  move.w (tr,a0), d0
+  add.w (curr_r,a0), d0
+  move.w d0, (zr,a0)
+
+  ;; zi = ti + curr_i;
+  move.w (ti,a0), d0
+  add.w (curr_i,a0), d0
+  move.w d0, (zi,a0)
+
+  subq.w #1, d2
+  bne.s mandelbrot_for_count
+mandelbrot_stop:
+
+  move.w (0,a1,d0*2), d0
+
+  jsr lcd_send_data
+
+  add.w #0x0020, (curr_r,a0)
+  subq.w #1, (a0)
+  bne.w mandelbrot_for_x
+
+  add.w #0x0020, (curr_i,a0)
+  subq.w #1, (curr_y,a0)
+  bne.w mandelbrot_for_y
 
   ;; Some test code.
   ;move.l #0xfffe, d6
