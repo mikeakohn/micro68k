@@ -160,10 +160,14 @@ always @(posedge raw_clk) begin
     3'b000: begin column_value <= 4'b0111; leds_value <= ~data[0][7:0]; end
     //3'b000: begin column_value <= 4'b0111; leds_value <= ~flags[7:0]; end
     //3'b010: begin column_value <= 4'b1011; leds_value <= ~instruction[15:8]; end
-    3'b010: begin column_value <= 4'b1011; leds_value <= ~data[0][15:8]; end
+    3'b010: begin column_value <= 4'b1011; leds_value <= ~address[7][7:0]; end
+    //3'b010: begin column_value <= 4'b1011; leds_value <= ~data[7][15:8]; end
+    3'b010: begin column_value <= 4'b1011; leds_value <= ~pc[15:8]; end
     //3'b010: begin column_value <= 4'b1011; leds_value <= ~flags[15:8]; end
     3'b100: begin column_value <= 4'b1101; leds_value <= ~pc[7:0]; end
+    //3'b100: begin column_value <= 4'b1101; leds_value <= ~data[7][23:16]; end
     3'b110: begin column_value <= 4'b1110; leds_value <= ~state; end
+    //3'b110: begin column_value <= 4'b1110; leds_value <= ~data[7][31:24]; end
     default: begin column_value <= 4'b1111; leds_value <= 8'hff; end
   endcase
 end
@@ -330,6 +334,10 @@ always @(posedge clk) begin
           mem_bus_enable <= 1;
           mem_address <= pc;
           pc <= pc + 2;
+// DEBUG !!!!!
+//if (data[2][15:4] != 0)
+//state <= STATE_ERROR;
+//else
           state <= STATE_FETCH_OP_1;
         end
       STATE_FETCH_OP_1:
@@ -709,7 +717,7 @@ always @(posedge clk) begin
             3'b101:
               begin
                 // (d16, An).
-                mem_count <= 0;
+                //mem_count <= 0;
                 mem_last <= 0;
                 state_after_fetch_data <= STATE_COMPUTE_EA_1;
                 state <= STATE_FETCH_DATA_0;
@@ -717,7 +725,7 @@ always @(posedge clk) begin
             3'b110:
               begin
                 // (d8, An, Xn).
-                mem_count <= 0;
+                //mem_count <= 0;
                 mem_last <= 0;
                 state_after_fetch_data <= STATE_COMPUTE_EA_1;
                 state <= STATE_FETCH_DATA_0;
@@ -729,13 +737,14 @@ always @(posedge clk) begin
                 // #data        (reg 100). 2 or 4 bytes (depends on size)
                 // (d16, pc)    (reg 010). 2 bytes
                 // (d8, pc, Xn) (reg 011). 2 bytes
-                mem_count <= 0;
+                //mem_count <= 0;
                 mem_last <= ea_reg == 3'b001 ? 1 : 0;
 
                 state_after_fetch_data <= STATE_COMPUTE_EA_1;
                 state <= STATE_FETCH_DATA_0;
               end
-            default: state <= STATE_ERROR;
+            default:
+              state <= STATE_ERROR;
           endcase
         end
       STATE_COMPUTE_EA_1:
@@ -1092,7 +1101,9 @@ always @(posedge clk) begin
                   state <= STATE_FETCH_OP_0;
                 end
               default:
-                state <= STATE_ALU_WB_MEM;
+                begin
+                  state <= STATE_ALU_WB_MEM;
+                end
             endcase
           end
         end
@@ -1193,6 +1204,8 @@ always @(posedge clk) begin
 
           flags[FLAG_OVERFLOW] <= 0;
           flags[FLAG_CARRY] <= 0;
+
+          state <= STATE_FETCH_OP_0;
         end
       STATE_SHIFT_0:
         begin

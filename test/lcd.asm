@@ -190,8 +190,8 @@ multiply_signed_skip_add:
   lsl.l #1, d6
   cmp.l #0, d7
   bne.s multiply_signed_loop
-  ;asr.l #8, d0
-  ;asr.l #2, d0
+  asr.l #8, d0
+  asr.l #2, d0
   and.l #0xffff, d0
   cmp.w #0, d5
   bne.s multiply_signed_exit
@@ -285,7 +285,7 @@ mandelbrot_for_count:
   bne.s mandelbrot_for_count
 mandelbrot_stop:
 
-  move.w (0,a1,d0*2), d0
+  move.w (0,a1,d2*2), d0
   ;move.w #0x000f, d0
 
   jsr lcd_send_data
