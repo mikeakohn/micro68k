@@ -438,6 +438,7 @@ always @(posedge clk) begin
                           alu_op <= ALU_SR;
                         else
                           alu_op <= ALU_NEG;
+
                         state <= STATE_ALU_0;
                       end
                     3'b011:
@@ -1047,12 +1048,13 @@ always @(posedge clk) begin
 
           if (alu_op == ALU_BIT) begin
             state <= STATE_BIT_UPDATE;
+          end if (alu_op == ALU_NEG) begin
+            dest_reg = ea_reg;
+            direction <= 1;
+            state <= STATE_ALU_WB;
           end else if (alu_op == ALU_SR && direction == 0) begin
             flags <= temp;
             state <= STATE_FETCH_OP_0;
-          //end else if (alu_op == ALU_CMP) begin
-          //  flags <= temp;
-          //  state <= STATE_FETCH_OP_0;
           end else begin
             state <= STATE_ALU_WB;
           end
