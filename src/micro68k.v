@@ -96,13 +96,15 @@ assign shift_size = instruction[7:6];
 // s = size (w or l)
 // X = scale value (1, 2, 4)
 // d = signed d8 displacement
+wire xn_type;
 wire [3:0] xn_reg;
 wire xn_size;
 wire [2:0] xn_scale;
 wire signed [7:0] xn_disp;
+assign xn_type = temp[15];
 assign xn_reg = temp[14:12];
 assign xn_size = temp[11];
-assign xn_scale = temp[10:8];
+assign xn_scale = temp[10:9];
 assign xn_disp = temp[7:0];
 
 // ALU.
@@ -158,16 +160,17 @@ always @(posedge raw_clk) begin
   case (count[9:7])
     //3'b000: begin column_value <= 4'b0111; leds_value <= ~instruction[7:0]; end
     3'b000: begin column_value <= 4'b0111; leds_value <= ~data[0][7:0]; end
+    //3'b000: begin column_value <= 4'b0111; leds_value <= ~address[0][7:0]; end
     //3'b000: begin column_value <= 4'b0111; leds_value <= ~flags[7:0]; end
     //3'b010: begin column_value <= 4'b1011; leds_value <= ~instruction[15:8]; end
-    3'b010: begin column_value <= 4'b1011; leds_value <= ~address[7][7:0]; end
-    //3'b010: begin column_value <= 4'b1011; leds_value <= ~data[7][15:8]; end
-    3'b010: begin column_value <= 4'b1011; leds_value <= ~pc[15:8]; end
+    3'b010: begin column_value <= 4'b1011; leds_value <= ~data[0][15:8]; end
+    //3'b010: begin column_value <= 4'b1011; leds_value <= ~address[0][15:8]; end
+    //3'b010: begin column_value <= 4'b1011; leds_value <= ~pc[15:8]; end
     //3'b010: begin column_value <= 4'b1011; leds_value <= ~flags[15:8]; end
     3'b100: begin column_value <= 4'b1101; leds_value <= ~pc[7:0]; end
-    //3'b100: begin column_value <= 4'b1101; leds_value <= ~data[7][23:16]; end
+    //3'b100: begin column_value <= 4'b1101; leds_value <= ~data[5][7:0]; end
     3'b110: begin column_value <= 4'b1110; leds_value <= ~state; end
-    //3'b110: begin column_value <= 4'b1110; leds_value <= ~data[7][31:24]; end
+    //3'b110: begin column_value <= 4'b1110; leds_value <= ~data[5][15:8]; end
     default: begin column_value <= 4'b1111; leds_value <= 8'hff; end
   endcase
 end
@@ -217,6 +220,9 @@ parameter STATE_BIT_UPDATE   = 38;
 
 parameter STATE_ALU_QUICK_0  = 39;
 
+parameter STATE_DEBUG_0 =      50;
+parameter STATE_DEBUG_1 =      51;
+
 parameter STATE_HALTED =       57; // 0x39
 parameter STATE_ERROR =        58; // 0x3a
 parameter STATE_EEPROM_START = 59;
@@ -241,46 +247,46 @@ parameter ALU_NEG = 12;
 parameter ALU_SR  = 13;
 //parameter ALU_ADDQ = 14;
 
-task set_flags8_nocf(input [8:0] data);
-  flags[FLAG_NEGATIVE] <= data[7];
-  flags[FLAG_ZERO]     <= data[7:0] == 0;
+task set_flags8_nocf(input [8:0] value);
+  flags[FLAG_NEGATIVE] <= value[7];
+  flags[FLAG_ZERO]     <= value[7:0] == 0;
   flags[FLAG_OVERFLOW] <= 0;
   flags[FLAG_CARRY]    <= 0;
 endtask
 
-task set_flags16_nocf(input [16:0] data);
-  flags[FLAG_NEGATIVE] <= data[15];
-  flags[FLAG_ZERO]     <= data[15:0] == 0;
+task set_flags16_nocf(input [16:0] value);
+  flags[FLAG_NEGATIVE] <= value[15];
+  flags[FLAG_ZERO]     <= value[15:0] == 0;
   flags[FLAG_OVERFLOW] <= 0;
   flags[FLAG_CARRY]    <= 0;
 endtask
 
-task set_flags32_nocf(input [32:0] data);
-  flags[FLAG_NEGATIVE] <= data[31];
-  flags[FLAG_ZERO]     <= data[31:0] == 0;
+task set_flags32_nocf(input [32:0] value);
+  flags[FLAG_NEGATIVE] <= value[31];
+  flags[FLAG_ZERO]     <= value[31:0] == 0;
   flags[FLAG_OVERFLOW] <= 0;
   flags[FLAG_CARRY]    <= 0;
 endtask
 
-task set_flags8(input [8:0] data, input [7:0] old);
-  flags[FLAG_NEGATIVE] <= data[7];
-  flags[FLAG_ZERO]     <= data[7:0] == 0;
-  flags[FLAG_OVERFLOW] <= data[8] ^ old[7];
-  flags[FLAG_CARRY]    <= data[8];
+task set_flags8(input [8:0] value, input [7:0] old);
+  flags[FLAG_NEGATIVE] <= value[7];
+  flags[FLAG_ZERO]     <= value[7:0] == 0;
+  flags[FLAG_OVERFLOW] <= value[8] ^ old[7];
+  flags[FLAG_CARRY]    <= value[8];
 endtask
 
-task set_flags16(input [16:0] data, input [15:0] old);
-  flags[FLAG_NEGATIVE] <= data[15];
-  flags[FLAG_ZERO]     <= data[15:0] == 0;
-  flags[FLAG_OVERFLOW] <= data[16] ^ old[15];
-  flags[FLAG_CARRY]    <= data[16];
+task set_flags16(input [16:0] value, input [15:0] old);
+  flags[FLAG_NEGATIVE] <= value[15];
+  flags[FLAG_ZERO]     <= value[15:0] == 0;
+  flags[FLAG_OVERFLOW] <= value[16] ^ old[15];
+  flags[FLAG_CARRY]    <= value[16];
 endtask
 
-task set_flags32(input [32:0] data, input [31:0] old);
-  flags[FLAG_NEGATIVE] <= data[31];
-  flags[FLAG_ZERO]     <= data[31:0] == 0;
-  flags[FLAG_OVERFLOW] <= data[32] ^ old[31];
-  flags[FLAG_CARRY]    <= data[32];
+task set_flags32(input [32:0] value, input [31:0] old);
+  flags[FLAG_NEGATIVE] <= value[31];
+  flags[FLAG_ZERO]     <= value[31:0] == 0;
+  flags[FLAG_OVERFLOW] <= value[32] ^ old[31];
+  flags[FLAG_CARRY]    <= value[32];
 endtask
 
 // This block is the main CPU instruction execute state machine.
@@ -289,6 +295,7 @@ always @(posedge clk) begin
     state <= STATE_RESET;
   else if (!button_halt)
     state <= STATE_HALTED;
+    //state <= STATE_DEBUG_0;
   else
     case (state)
       STATE_RESET:
@@ -375,8 +382,10 @@ always @(posedge clk) begin
                 end
               default:
                 begin
-                  // move <ea>, <ea>
-                  // movea <ea>, An
+                  // move <ea>, <ea>    00 SZ REG MOD MOD REG
+                  // movea <ea>, An     00 SZ DST 001 MOD REG
+                  // SZ = 01 11 10 is move
+                  // SZ =    11 10 is movea
                   alu_op <= ALU_MOV;
                   state <= STATE_ALU_0;
                 end
@@ -606,7 +615,7 @@ always @(posedge clk) begin
       STATE_FETCH_EA_0:
         begin
           mem_bus_enable <= 1;
-          mem_address <= { ea[31:1], 1'b0 };
+          mem_address <= { ea[15:1], 1'b0 };
           state <= STATE_FETCH_EA_1;
         end
       STATE_FETCH_EA_1:
@@ -645,7 +654,7 @@ always @(posedge clk) begin
         begin
           mem_bus_enable <= 1;
           mem_write_enable <= 1;
-          mem_address <= { ea_wb[31:1], 1'b0 };
+          mem_address <= { ea_wb[15:1], 1'b0 };
 
           if (mem_last == 1) begin
             mem_write_mask <= 2'b00;
@@ -696,36 +705,34 @@ always @(posedge clk) begin
           case (ea_mode)
             3'b010:
               begin
-                // (An).
+                // (An)
                 ea <= address[ea_reg];
                 state <= state_after_ea;
               end
             3'b011:
               begin
-                // (An)+.
+                // (An)+
                 ea <= address[ea_reg];
                 address[ea_reg] <= address[ea_reg] + size;
                 state <= state_after_ea;
               end
             3'b100:
               begin
-                // -(An).
+                // -(An)
                 ea <= address[ea_reg] - size;
                 address[ea_reg] <= address[ea_reg] - size;
                 state <= state_after_ea;
               end
             3'b101:
               begin
-                // (d16, An).
-                //mem_count <= 0;
+                // (d16, An)
                 mem_last <= 0;
                 state_after_fetch_data <= STATE_COMPUTE_EA_1;
                 state <= STATE_FETCH_DATA_0;
               end
             3'b110:
               begin
-                // (d8, An, Xn).
-                //mem_count <= 0;
+                // (d8, An, Xn)
                 mem_last <= 0;
                 state_after_fetch_data <= STATE_COMPUTE_EA_1;
                 state <= STATE_FETCH_DATA_0;
@@ -737,7 +744,6 @@ always @(posedge clk) begin
                 // #data        (reg 100). 2 or 4 bytes (depends on size)
                 // (d16, pc)    (reg 010). 2 bytes
                 // (d8, pc, Xn) (reg 011). 2 bytes
-                //mem_count <= 0;
                 mem_last <= ea_reg == 3'b001 ? 1 : 0;
 
                 state_after_fetch_data <= STATE_COMPUTE_EA_1;
@@ -759,15 +765,15 @@ always @(posedge clk) begin
               begin
                 // (d8, An, Xn).
                 if (xn_size == 0)
-                  if (xn_scale == 0)
-                    ea <= address[ea_reg] + xn_disp + data[xn_reg][15:0];
+                  if (xn_type == 0)
+                    ea <= address[ea_reg] + xn_disp + (data[xn_reg][15:0] << xn_scale);
                   else
-                    ea <= address[ea_reg] + xn_disp + (data[xn_reg][15:0] << (xn_scale == 4 ? 2 : 1));
+                    ea <= address[ea_reg] + xn_disp + (address[xn_reg][15:0] << xn_scale);
                 else
-                  if (xn_scale == 0)
-                    ea <= address[ea_reg] + xn_disp + data[xn_reg];
+                  if (xn_type == 0)
+                    ea <= address[ea_reg] + xn_disp + (data[xn_reg] << xn_scale);
                   else
-                    ea <= address[ea_reg] + xn_disp + (data[xn_reg] << (xn_scale == 4 ? 2 : 1));
+                    ea <= address[ea_reg] + xn_disp + (address[xn_reg] << xn_scale);
               end
             3'b111:
               begin
@@ -800,15 +806,15 @@ always @(posedge clk) begin
                     begin
                       // (d8, pc, Xn) (reg 011).
                       if (xn_size == 0)
-                        if (xn_scale == 0)
-                          ea <= pc_current + xn_disp + data[xn_reg][15:0];
+                        if (xn_type == 0)
+                          ea <= pc_current + xn_disp + (data[xn_reg][15:0] << xn_scale);
                         else
-                          ea <= pc_current + xn_disp + (data[xn_reg][15:0] << (xn_scale == 4 ? 2 : 1));
+                          ea <= pc_current + xn_disp + (address[xn_reg][15:0] << xn_scale);
                       else
-                        if (xn_scale == 0)
-                          ea <= pc_current + xn_disp + data[xn_reg];
+                        if (xn_type == 0)
+                          ea <= pc_current + xn_disp + (data[xn_reg] << xn_scale);
                         else
-                          ea <= pc_current + xn_disp + (data[xn_reg] << (xn_scale == 4 ? 2 : 1));
+                          ea <= pc_current + xn_disp + (address[xn_reg] << xn_scale);
                     end
                 endcase
               end
@@ -949,18 +955,25 @@ always @(posedge clk) begin
             3'b111:
               begin
                 if (ea_reg == 3'b100) begin
-                  // ea is #<data>
+                  // 111 100 #<data>
                   mem_count <= 0;
                   mem_last <= size == 4 ? 1 : 0;
                   state_after_fetch_data <= STATE_ALU_3;
                   state <= STATE_FETCH_DATA_0;
                 end else begin
+                  // 111 000 (xxx).w
+                  // 111 001 (xxx).w
+                  // 111 010 (d16,pc)
+                  // 111 011 (d8,pc,Xn)
                   state_after_ea <= STATE_ALU_2;
                   state <= STATE_COMPUTE_EA_0;
                 end
               end
             default:
               begin
+                // 010 (An)
+                // 101 (d16,An)
+                // 110 (d8,An,Xn)
                 state_after_ea <= STATE_ALU_2;
                 state <= STATE_COMPUTE_EA_0;
               end
@@ -977,7 +990,6 @@ always @(posedge clk) begin
               pc <= ea;
             else
               address[op_reg] <= ea;
-
             if (alu_op == ALU_JSR) begin
               temp <= pc;
               state <= STATE_PUSH_TEMP_0;
@@ -1151,8 +1163,8 @@ always @(posedge clk) begin
             3'b001:
               begin
                 case (size)
-                  2: data[ea_reg][15:0] <= temp[15:0];
-                  4: data[ea_reg] <= temp;
+                  2: address[ea_reg][15:0] <= temp[15:0];
+                  4: address[ea_reg] <= temp;
                 endcase
                 state <= STATE_FETCH_OP_0;
               end
@@ -1473,6 +1485,23 @@ always @(posedge clk) begin
         end
       STATE_ERROR:
         begin
+//DEBUG REMOVE
+//data[0] <= ea_wb;
+//data[0] <= mem_write;
+          state <= STATE_ERROR;
+        end
+      STATE_DEBUG_0:
+        begin
+          mem_bus_enable <= 1;
+          //mem_address <= address[7] + 2;
+          mem_address <= 16'hffa;
+          state <= STATE_DEBUG_1;
+        end
+      STATE_DEBUG_1:
+        begin
+          mem_bus_enable <= 0;
+          data[0] <= mem_read;
+          //data[0] <= address[7];
           state <= STATE_ERROR;
         end
       STATE_EEPROM_START:
