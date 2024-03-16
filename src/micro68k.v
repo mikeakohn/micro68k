@@ -1050,9 +1050,9 @@ always @(posedge clk) begin
           end else if (alu_op == ALU_SR && direction == 0) begin
             flags <= temp;
             state <= STATE_FETCH_OP_0;
-          end else if (alu_op == ALU_CMP) begin
-            flags <= temp;
-            state <= STATE_FETCH_OP_0;
+          //end else if (alu_op == ALU_CMP) begin
+          //  flags <= temp;
+          //  state <= STATE_FETCH_OP_0;
           end else begin
             state <= STATE_ALU_WB;
           end
@@ -1078,7 +1078,9 @@ always @(posedge clk) begin
                 end
             endcase
 
-          if (is_address == 1) begin
+          if (alu_op == ALU_CMP) begin
+            state <= STATE_FETCH_OP_0;
+          end else if (is_address == 1) begin
             if (size == 2)
               address[op_reg][15:0] <= result[15:0];
             else
