@@ -1050,6 +1050,9 @@ always @(posedge clk) begin
           end else if (alu_op == ALU_SR && direction == 0) begin
             flags <= temp;
             state <= STATE_FETCH_OP_0;
+          end else if (alu_op == ALU_CMP) begin
+            flags <= temp;
+            state <= STATE_FETCH_OP_0;
           end else begin
             state <= STATE_ALU_WB;
           end
