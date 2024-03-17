@@ -58,9 +58,6 @@ Not implemented:
 
     asl <ea>
     asr <ea>
-    bchg
-    bclr
-    bset
     exg
     lsl <ea>
     lsr <ea>

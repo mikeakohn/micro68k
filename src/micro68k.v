@@ -217,10 +217,10 @@ parameter STATE_PUSH_TEMP_0 =  32;
 parameter STATE_PUSH_TEMP_1 =  33;
 parameter STATE_POP_PC_0 =     34;
 parameter STATE_POP_PC_1 =     35;
-parameter STATE_SWAP =         37;
-parameter STATE_BIT_UPDATE   = 38;
+parameter STATE_SWAP =         36;
+parameter STATE_BIT_UPDATE   = 37;
 
-parameter STATE_ALU_QUICK_0  = 39;
+parameter STATE_ALU_QUICK_0  = 38;
 
 parameter STATE_DEBUG_0 =      50;
 parameter STATE_DEBUG_1 =      51;
@@ -371,10 +371,10 @@ always @(posedge clk) begin
                   // subi #<data>, <ea>  0000 010 0
                   // addi #<data>, <ea>  0000 011 0
                   // eori #<data>, <ea>  0000 101 0
-                  // bclr #<data>, <ea>  0000 100 0 10
-                  // btst #<data>, <ea>  0000 100 0 00
-                  // bchg #<data>, <ea>  0000 100 0 01
-                  // bset #<data>, <ea>  0000 100 0 11
+                  // bclr #<data>, <ea>  0000 100 0 10 mod reg
+                  // btst #<data>, <ea>  0000 100 0 00 mod reg
+                  // bchg #<data>, <ea>  0000 100 0 01 mod reg
+                  // bset #<data>, <ea>  0000 100 0 11 mod reg
                   // cmpi #<data>, <ea>  0000 110 0
                   alu_op <= instruction[11:9];
                   state <= STATE_ALU_IMM_0;
@@ -669,16 +669,11 @@ always @(posedge clk) begin
             case (mem_count)
               0: mem_write <= temp[31:16];
               1: mem_write <= temp[15:0];
-              //DEBUG
-              //0: mem_write <= 7;
-              //1: mem_write <= 10;
             endcase
           end else begin
             if (size == 2) begin
               mem_write_mask <= 2'b00;
               mem_write <= temp[15:0];
-              //DEBUG
-              //mem_write <= 16'ha152;
             end else begin
               if (ea_wb[0] == 0) begin
                 mem_write_mask <= 2'b10;
@@ -931,12 +926,8 @@ always @(posedge clk) begin
             endcase
           end
 
-          if (alu_op == ALU_BIT) begin
-            arg1 <= data[instruction[11:9]];
-          end else begin
-            arg1 <= data[op_reg];
-            arg1_reg <= op_reg;
-          end
+          arg1 <= data[op_reg];
+          arg1_reg <= op_reg;
 
           ea_code <= instruction[5:0];
 
@@ -1027,7 +1018,7 @@ always @(posedge clk) begin
             dest_value <= temp & alu_mask;
             dest_reg = ea_reg;
           end else if (direction == 0) begin
-            arg1 <= temp;
+            if (alu_op != ALU_BIT) arg1 <= temp;
             dest_reg = op_reg;
             dest_value <= data[op_reg] & alu_mask;
           end else begin
@@ -1055,14 +1046,14 @@ always @(posedge clk) begin
             ALU_CLR: result <= 0;
             ALU_NEG: result <= 0 - arg1;
             ALU_SR:  result <= flags;
-            ALU_BIT: begin flags[FLAG_ZERO] <= ~arg1[arg1]; result <= arg1; end
+            ALU_BIT: begin flags[FLAG_ZERO] <= ~dest_value[arg1]; result <= dest_value; end
           endcase
 
           alu_reverse_sign <= alu_op == ALU_SUB || alu_op == ALU_CMP;
 
           if (alu_op == ALU_BIT) begin
             state <= STATE_BIT_UPDATE;
-          end if (alu_op == ALU_NEG) begin
+          end else if (alu_op == ALU_NEG) begin
             dest_reg = ea_reg;
             direction <= 1;
             state <= STATE_ALU_WB;
@@ -1490,6 +1481,10 @@ always @(posedge clk) begin
         end
       STATE_BIT_UPDATE:
         begin
+          // btst 00
+          // bchg 01
+          // bclr 10
+          // bset 11
           case (instruction[7:6])
             2'b01: result[arg1] <= result[arg1] ^ 1;
             2'b10: result[arg1] <= 0;
@@ -1507,9 +1502,6 @@ always @(posedge clk) begin
         end
       STATE_ERROR:
         begin
-//DEBUG REMOVE
-//data[0] <= ea_wb;
-//data[0] <= mem_write;
           state <= STATE_ERROR;
         end
       STATE_DEBUG_0:

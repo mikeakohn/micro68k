@@ -69,6 +69,8 @@ main:
   jsr lcd_init
   jsr lcd_clear
 
+  ;jmp test_mul
+
 main_while_1:
   jsr delay
   ;; Check button.
@@ -193,8 +195,8 @@ multiply_signed_skip_add:
   asr.l #8, d0
   asr.l #2, d0
   and.l #0xffff, d0
-  cmp.w #0, d5
-  bne.s multiply_signed_exit
+  btst #0, d5
+  beq.s multiply_signed_exit
   neg.w d0
 multiply_signed_exit:
   rts
@@ -257,8 +259,9 @@ mandelbrot_for_count:
   ;; cmp does: 4 - (zr2 + zi2).. if it's negative it's bigger than 4.
   move.w (zr2,a0), d0
   add.w (zi2,a0), d0
-  cmp.w #4, d0
+  cmp.w #4 << 10, d0
   bgt.s mandelbrot_stop
+  ;bhi.s mandelbrot_stop
 
   ;; tr = zr2 - zi2;
   move.w (zr2,a0), d0
@@ -297,15 +300,14 @@ mandelbrot_stop:
   add.w #0x0020, (curr_i,a0)
   subq.w #1, (curr_y,a0)
   bne.w mandelbrot_for_y
+  rts
 
   ;; Some test code.
-  ;move.l #0xfffe, d6
-  ;move.l #4, d7
+test_mul:
+  ;move.l #2, d6
+  ;move.l #0xfff0, d7
   ;jsr multiply_signed
-  ;jsr multiply
   ;trap #0
-
-  rts
 
 ;; lcd_send_cmd(d0)
 lcd_send_cmd:
