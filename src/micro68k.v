@@ -112,6 +112,8 @@ reg [2:0] dest_reg;
 reg [3:0] alu_op = 0;
 reg [31:0] dest_value;
 reg [32:0] result;
+reg [31:0] alu_mask;
+reg alu_reverse_sign;
 
 // State.
 reg [5:0] state = 0;
@@ -268,24 +270,27 @@ task set_flags32_nocf(input [32:0] value);
   flags[FLAG_CARRY]    <= 0;
 endtask
 
-task set_flags8(input [8:0] value, input [7:0] old);
+task set_flags8(input [8:0] value, input [7:0] old, input [31:0] src, input alu_reverse_sign);
   flags[FLAG_NEGATIVE] <= value[7];
   flags[FLAG_ZERO]     <= value[7:0] == 0;
-  flags[FLAG_OVERFLOW] <= value[8] ^ old[7];
+  //flags[FLAG_OVERFLOW] <= value[8] ^ old[7];
+  flags[FLAG_OVERFLOW] <= old[7] == (src[7] ^ alu_reverse_sign) && value[7] != old[7];
   flags[FLAG_CARRY]    <= value[8];
 endtask
 
-task set_flags16(input [16:0] value, input [15:0] old);
+task set_flags16(input [16:0] value, input [15:0] old, input [31:0] src, input alu_reverse_sign);
   flags[FLAG_NEGATIVE] <= value[15];
   flags[FLAG_ZERO]     <= value[15:0] == 0;
-  flags[FLAG_OVERFLOW] <= value[16] ^ old[15];
+  //flags[FLAG_OVERFLOW] <= value[16] ^ old[15];
+  flags[FLAG_OVERFLOW] <= old[15] == (src[15] ^ alu_reverse_sign) && value[15] != old[15];
   flags[FLAG_CARRY]    <= value[16];
 endtask
 
-task set_flags32(input [32:0] value, input [31:0] old);
+task set_flags32(input [32:0] value, input [31:0] old, input [31:0] src, input alu_reverse_sign);
   flags[FLAG_NEGATIVE] <= value[31];
   flags[FLAG_ZERO]     <= value[31:0] == 0;
-  flags[FLAG_OVERFLOW] <= value[32] ^ old[31];
+  //flags[FLAG_OVERFLOW] <= value[32] ^ old[31];
+  flags[FLAG_OVERFLOW] <= old[31] == (src[31] ^ alu_reverse_sign) && value[31] != old[31];
   flags[FLAG_CARRY]    <= value[32];
 endtask
 
@@ -335,6 +340,7 @@ always @(posedge clk) begin
           is_lea <= 0;
           is_address <= 0;
           is_immediate <= 0;
+          alu_mask <= 32'hffffffff;
           do_branch <= 0;
           direction <= 0;
           mem_count <= 0;
@@ -979,6 +985,12 @@ always @(posedge clk) begin
                 state <= STATE_COMPUTE_EA_0;
               end
           endcase
+
+          case (size)
+            1: alu_mask <= 8'hff;
+            2: alu_mask <= 16'hffff;
+            4: alu_mask <= 32'hffffffff;
+          endcase
         end
       STATE_ALU_2:
         begin
@@ -1012,14 +1024,14 @@ always @(posedge clk) begin
       STATE_ALU_3:
         begin
           if (is_immediate) begin
-            dest_value <= temp;
+            dest_value <= temp & alu_mask;
             dest_reg = ea_reg;
           end else if (direction == 0) begin
             arg1 <= temp;
             dest_reg = op_reg;
-            dest_value <= data[op_reg];
+            dest_value <= data[op_reg] & alu_mask;
           end else begin
-            dest_value <= temp;
+            dest_value <= temp & alu_mask;
             temp <= data[op_reg];
           end
 
@@ -1046,6 +1058,8 @@ always @(posedge clk) begin
             ALU_BIT: begin flags[FLAG_ZERO] <= ~arg1[arg1]; result <= arg1; end
           endcase
 
+          alu_reverse_sign <= alu_op == ALU_SUB || alu_op == ALU_CMP;
+
           if (alu_op == ALU_BIT) begin
             state <= STATE_BIT_UPDATE;
           end if (alu_op == ALU_NEG) begin
@@ -1065,17 +1079,17 @@ always @(posedge clk) begin
             case (size)
               1:
                 begin
-                  set_flags8(result, dest_value);
+                  set_flags8(result, dest_value, arg1, alu_reverse_sign);
                   temp[7:0] <= result[7:0];
                 end
               2:
                 begin
-                  set_flags16(result, dest_value);
+                  set_flags16(result, dest_value, arg1, alu_reverse_sign);
                   temp[15:0] <= result[15:0];
                 end
               4:
                 begin
-                  set_flags32(result, dest_value);
+                  set_flags32(result, dest_value, arg1, alu_reverse_sign);
                   temp[31:0] <= result[31:0];
                 end
             endcase
@@ -1344,6 +1358,7 @@ always @(posedge clk) begin
             state <= STATE_BRANCH_1;
           end
 
+          // Table 3-19. Conditional Tests.
           case (instruction[11:9])
             3'b000:
               begin
@@ -1383,8 +1398,8 @@ always @(posedge clk) begin
             3'b110:
               begin
                 // Branch greater or equal / less than (ge, lt).
-                if (((flags[FLAG_NEGATIVE] && flags[FLAG_OVERFLOW]) ||
-                    (~flags[FLAG_NEGATIVE] || ~flags[FLAG_OVERFLOW]))
+                if (((flags[FLAG_NEGATIVE] &&  flags[FLAG_OVERFLOW]) ||
+                    (~flags[FLAG_NEGATIVE] && ~flags[FLAG_OVERFLOW]))
                      ^ instruction[8])
                   do_branch <= 1;
               end
