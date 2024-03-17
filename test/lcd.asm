@@ -268,10 +268,11 @@ mandelbrot_for_count:
   sub.w (zi2,a0), d0
   move.w d0, (tr,a0)
 
-  ;; ti = ((zr * zi) >> DEC_PLACE) << 1;
+  ;; ti = ((zr * zi * 2)
   move.w (zr,a0), d7
   move.w (zi,a0), d6
   jsr multiply_signed
+  lsl.w #1, d0
   move.w d0, (ti,a0)
 
   ;; zr = tr + curr_r;
