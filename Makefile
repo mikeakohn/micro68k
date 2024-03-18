@@ -70,6 +70,10 @@ flags:
 	naken_asm -l -type bin -o rom.bin test/flags.asm
 	python3 tools/bin2txt.py rom.bin > rom.txt
 
+sign_ext:
+	naken_asm -l -type bin -o rom.bin test/sign_ext.asm
+	python3 tools/bin2txt.py rom.bin > rom.txt
+
 mem_test:
 	naken_asm -l -type bin -o rom.bin test/mem_test.asm
 	python3 tools/bin2txt.py rom.bin > rom.txt

@@ -1027,9 +1027,9 @@ always @(posedge clk) begin
           end
 
           if (alu_op == ALU_MOV) begin
-            state <= STATE_MOVE_0;
             ea_code[2:0] <= instruction[11:9];
             ea_code[5:3] <= instruction[8:6];
+            state <= STATE_MOVE_0;
           end else begin
             state <= STATE_ALU_4;
           end
@@ -1175,7 +1175,7 @@ always @(posedge clk) begin
             3'b001:
               begin
                 case (size)
-                  2: address[ea_reg][15:0] <= temp[15:0];
+                  2: address[ea_reg] <= $signed(temp[15:0]);
                   4: address[ea_reg] <= temp;
                 endcase
                 state <= STATE_FETCH_OP_0;
