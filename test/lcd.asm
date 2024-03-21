@@ -245,13 +245,13 @@ mandelbrot_for_x:
 mandelbrot_for_count:
   ;; zr2 = (zr * zr) >> DEC_PLACE;
   move.w (zr,a0), d7
-  move.w (zr,a0), d6
+  move.w d7, d6
   jsr multiply_signed
   move.w d0, (zr2,a0)
 
   ;; zi2 = (zi * zi) >> DEC_PLACE;
   move.w (zi,a0), d7
-  move.w (zi,a0), d6
+  move.w d7, d6
   jsr multiply_signed
   move.w d0, (zi2,a0)
 
