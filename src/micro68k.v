@@ -137,9 +137,9 @@ parameter FLAG_OVERFLOW = 1;
 parameter FLAG_CARRY    = 0;
 
 // Eeprom.
-reg [10:0] eeprom_count;
+reg [11:0] eeprom_count;
 wire [7:0] eeprom_data_out;
-reg  [7:0] eeprom_holding [3:0];
+reg  [7:0] eeprom_holding [1:0];
 reg [10:0] eeprom_address;
 reg [15:0] eeprom_mem_address;
 reg eeprom_strobe = 0;
@@ -250,48 +250,57 @@ parameter ALU_SR  = 13;
 //parameter ALU_ADDQ = 14;
 
 task set_flags8_nocf(input [8:0] value);
-  flags[FLAG_NEGATIVE] <= value[7];
-  flags[FLAG_ZERO]     <= value[7:0] == 0;
-  flags[FLAG_OVERFLOW] <= 0;
-  flags[FLAG_CARRY]    <= 0;
+  begin
+    flags[FLAG_NEGATIVE] <= value[7];
+    flags[FLAG_ZERO]     <= value[7:0] == 0;
+    flags[FLAG_OVERFLOW] <= 0;
+    flags[FLAG_CARRY]    <= 0;
+  end
 endtask
 
 task set_flags16_nocf(input [16:0] value);
-  flags[FLAG_NEGATIVE] <= value[15];
-  flags[FLAG_ZERO]     <= value[15:0] == 0;
-  flags[FLAG_OVERFLOW] <= 0;
-  flags[FLAG_CARRY]    <= 0;
+  begin
+    flags[FLAG_NEGATIVE] <= value[15];
+    flags[FLAG_ZERO]     <= value[15:0] == 0;
+    flags[FLAG_OVERFLOW] <= 0;
+    flags[FLAG_CARRY]    <= 0;
+  end
 endtask
 
 task set_flags32_nocf(input [32:0] value);
-  flags[FLAG_NEGATIVE] <= value[31];
-  flags[FLAG_ZERO]     <= value[31:0] == 0;
-  flags[FLAG_OVERFLOW] <= 0;
-  flags[FLAG_CARRY]    <= 0;
+  begin
+    flags[FLAG_NEGATIVE] <= value[31];
+    flags[FLAG_ZERO]     <= value[31:0] == 0;
+    flags[FLAG_OVERFLOW] <= 0;
+    flags[FLAG_CARRY]    <= 0;
+  end
 endtask
 
 task set_flags8(input [8:0] value, input [7:0] old, input [31:0] src, input alu_reverse_sign);
-  flags[FLAG_NEGATIVE] <= value[7];
-  flags[FLAG_ZERO]     <= value[7:0] == 0;
-  //flags[FLAG_OVERFLOW] <= value[8] ^ old[7];
-  flags[FLAG_OVERFLOW] <= old[7] == (src[7] ^ alu_reverse_sign) && value[7] != old[7];
-  flags[FLAG_CARRY]    <= value[8];
+  begin
+    flags[FLAG_NEGATIVE] <= value[7];
+    flags[FLAG_ZERO]     <= value[7:0] == 0;
+    flags[FLAG_OVERFLOW] <= old[7] == (src[7] ^ alu_reverse_sign) && value[7] != old[7];
+    flags[FLAG_CARRY]    <= value[8];
+  end
 endtask
 
 task set_flags16(input [16:0] value, input [15:0] old, input [31:0] src, input alu_reverse_sign);
-  flags[FLAG_NEGATIVE] <= value[15];
-  flags[FLAG_ZERO]     <= value[15:0] == 0;
-  //flags[FLAG_OVERFLOW] <= value[16] ^ old[15];
-  flags[FLAG_OVERFLOW] <= old[15] == (src[15] ^ alu_reverse_sign) && value[15] != old[15];
-  flags[FLAG_CARRY]    <= value[16];
+  begin
+    flags[FLAG_NEGATIVE] <= value[15];
+    flags[FLAG_ZERO]     <= value[15:0] == 0;
+    flags[FLAG_OVERFLOW] <= old[15] == (src[15] ^ alu_reverse_sign) && value[15] != old[15];
+    flags[FLAG_CARRY]    <= value[16];
+  end
 endtask
 
 task set_flags32(input [32:0] value, input [31:0] old, input [31:0] src, input alu_reverse_sign);
-  flags[FLAG_NEGATIVE] <= value[31];
-  flags[FLAG_ZERO]     <= value[31:0] == 0;
-  //flags[FLAG_OVERFLOW] <= value[32] ^ old[31];
-  flags[FLAG_OVERFLOW] <= old[31] == (src[31] ^ alu_reverse_sign) && value[31] != old[31];
-  flags[FLAG_CARRY]    <= value[32];
+  begin
+    flags[FLAG_NEGATIVE] <= value[31];
+    flags[FLAG_ZERO]     <= value[31:0] == 0;
+    flags[FLAG_OVERFLOW] <= old[31] == (src[31] ^ alu_reverse_sign) && value[31] != old[31];
+    flags[FLAG_CARRY]    <= value[32];
+  end
 endtask
 
 // This block is the main CPU instruction execute state machine.
@@ -1522,7 +1531,6 @@ always @(posedge clk) begin
         begin
           // Initialize values for reading from SPI-like EEPROM.
           if (eeprom_ready) begin
-            //eeprom_mem_address <= pc;
             eeprom_mem_address <= 16'hc000;
             eeprom_count <= 0;
             state <= STATE_EEPROM_READ;
@@ -1543,21 +1551,16 @@ always @(posedge clk) begin
 
           if (eeprom_ready) begin
 
-            if (eeprom_count[1:0] == 3) begin
+            if (eeprom_count[0] == 1) begin
               mem_address <= eeprom_mem_address;
-              mem_write_mask <= 4'b0000;
-              // After reading 4 bytes, store the 32 bit value to RAM.
-              mem_write <= {
-                eeprom_data_out,
-                eeprom_holding[2],
-                eeprom_holding[1],
-                eeprom_holding[0]
-              };
+              mem_write_mask <= 2'b00;
+              // After reading 2 bytes, store the 16 bit value to RAM.
+              mem_write <= { eeprom_holding[0], eeprom_data_out };
 
               state <= STATE_EEPROM_WRITE;
             end else begin
-              // Read 3 bytes into a holding register.
-              eeprom_holding[eeprom_count[1:0]] <= eeprom_data_out;
+              // Read 1 byte into a holding register.
+              eeprom_holding[eeprom_count[0]] <= eeprom_data_out;
               state <= STATE_EEPROM_READ;
             end
 
@@ -1569,7 +1572,7 @@ always @(posedge clk) begin
           // Write value read from EEPROM into memory.
           mem_bus_enable <= 1;
           mem_write_enable <= 1;
-          eeprom_mem_address <= eeprom_mem_address + 4;
+          eeprom_mem_address <= eeprom_mem_address + 2;
 
           state <= STATE_EEPROM_DONE;
         end
@@ -1580,7 +1583,7 @@ always @(posedge clk) begin
           mem_write_enable <= 0;
 
           if (eeprom_count == 0) begin
-            // Read in 2048 bytes.
+            // Read in 4096 bytes.
             state <= STATE_FETCH_OP_0;
           end else
             state <= STATE_EEPROM_READ;

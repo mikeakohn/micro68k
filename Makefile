@@ -26,6 +26,10 @@ lcd:
 	naken_asm -l -type bin -o rom.bin test/lcd.asm
 	python3 tools/bin2txt.py rom.bin > rom.txt
 
+music:
+	naken_asm -l -type bin -o rom.bin test/music.asm
+	python3 tools/bin2txt.py rom.bin > rom.txt
+
 self_test:
 	naken_asm -l -type bin -o rom.bin test/self_test.asm
 	python3 tools/bin2txt.py rom.bin > rom.txt
